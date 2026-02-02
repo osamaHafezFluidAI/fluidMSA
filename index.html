@@ -26,15 +26,83 @@
         h1 {
             text-align: center;
             color: white;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             font-size: 2.2rem;
         }
 
-        .date {
+        .date-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .date-display {
             text-align: center;
-            color: rgba(255, 255, 255, 0.85);
-            margin-bottom: 30px;
-            font-size: 1.1rem;
+            color: white;
+            min-width: 200px;
+        }
+
+        .date-display .main-date {
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .date-display .main-date:hover {
+            text-decoration: underline;
+        }
+
+        .date-display .sub-info {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        .today-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .today-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .today-btn.hidden {
+            visibility: hidden;
+        }
+
+        .date-picker {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
         }
 
         .cards-container {
@@ -209,6 +277,16 @@
             margin-bottom: 20px;
         }
 
+        .approx-notice {
+            background: #fff8e1;
+            color: #f57f17;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 500px) {
             .cards-container {
                 grid-template-columns: 1fr;
@@ -224,13 +302,27 @@
                 align-items: flex-start;
                 gap: 10px;
             }
+
+            .date-nav {
+                flex-wrap: wrap;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Prayer Times</h1>
-        <p class="date" id="current-date"></p>
+
+        <div class="date-nav">
+            <button class="nav-btn" id="prev-day" title="Previous day">&larr;</button>
+            <div class="date-display">
+                <div class="main-date" id="current-date" title="Click to pick date"></div>
+                <div class="sub-info" id="date-info"></div>
+            </div>
+            <button class="nav-btn" id="next-day" title="Next day">&rarr;</button>
+            <button class="today-btn" id="today-btn">Today</button>
+            <input type="date" class="date-picker" id="date-picker">
+        </div>
 
         <div class="legend">
             <div class="legend-item">
@@ -292,16 +384,63 @@
     </div>
 
     <script>
-        // Display current date
-        const today = new Date();
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
+        let selectedDate = new Date();
+        let prayerData = null;
 
-        // Format date as MM-DD for JSON lookup (same times every year)
-        function formatDate(date) {
+        // Format date as MM-DD for JSON lookup
+        function formatDateKey(date) {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             return `${month}-${day}`;
+        }
+
+        // Format date for display
+        function formatDateDisplay(date) {
+            const options = { weekday: 'long', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+
+        // Check if two dates are the same day
+        function isSameDay(date1, date2) {
+            return date1.getDate() === date2.getDate() &&
+                   date1.getMonth() === date2.getMonth() &&
+                   date1.getFullYear() === date2.getFullYear();
+        }
+
+        // Convert MM-DD to day of year (for finding closest date)
+        function dateKeyToDayOfYear(key) {
+            const [month, day] = key.split('-').map(Number);
+            const date = new Date(2024, month - 1, day); // Use leap year
+            const start = new Date(2024, 0, 0);
+            const diff = date - start;
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        }
+
+        // Find closest available date in the times object
+        function findClosestDate(targetKey, times) {
+            if (times[targetKey]) {
+                return { key: targetKey, exact: true };
+            }
+
+            const targetDay = dateKeyToDayOfYear(targetKey);
+            const keys = Object.keys(times);
+
+            let closestKey = null;
+            let closestDiff = Infinity;
+
+            for (const key of keys) {
+                const keyDay = dateKeyToDayOfYear(key);
+                let diff = Math.abs(keyDay - targetDay);
+                // Handle year wrap-around
+                diff = Math.min(diff, 366 - diff);
+
+                if (diff < closestDiff) {
+                    closestDiff = diff;
+                    closestKey = key;
+                }
+            }
+
+            return { key: closestKey, exact: false, daysOff: closestDiff };
         }
 
         // Create prayer row HTML
@@ -336,38 +475,71 @@
             `;
         }
 
+        // Update the display
+        function updateDisplay() {
+            const today = new Date();
+            const isToday = isSameDay(selectedDate, today);
+
+            // Update date display
+            document.getElementById('current-date').textContent = formatDateDisplay(selectedDate);
+            document.getElementById('date-info').textContent = isToday ? 'Today' : selectedDate.getFullYear();
+
+            // Show/hide today button
+            document.getElementById('today-btn').classList.toggle('hidden', isToday);
+
+            // Update date picker value
+            const picker = document.getElementById('date-picker');
+            picker.value = selectedDate.toISOString().split('T')[0];
+
+            // Clear previous messages
+            document.getElementById('error-container').innerHTML = '';
+
+            if (!prayerData) {
+                document.getElementById('mosque-times').innerHTML = '<div class="loading">Loading...</div>';
+                return;
+            }
+
+            const dateKey = formatDateKey(selectedDate);
+            const result = findClosestDate(dateKey, prayerData.times);
+
+            if (!result.key) {
+                document.getElementById('error-container').innerHTML =
+                    `<div class="error-message">No prayer times available. Please update prayer-times.json.</div>`;
+                document.getElementById('mosque-times').innerHTML = '<div class="loading">Times not available</div>';
+                return;
+            }
+
+            const times = prayerData.times[result.key];
+
+            // Show notice if using approximate times
+            if (!result.exact) {
+                document.getElementById('error-container').innerHTML =
+                    `<div class="approx-notice">Using times from ${result.key} (${result.daysOff} day${result.daysOff > 1 ? 's' : ''} difference)</div>`;
+            }
+
+            // Build mosque times HTML
+            let html = '';
+            html += createPrayerRow('Fajr', times.fajr);
+            html += createPrayerRow('Dhuhr', times.dhuhr);
+            html += createPrayerRow('Asr', times.asr);
+            html += createPrayerRow('Maghrib', times.maghrib);
+            html += createPrayerRow('Isha', times.isha);
+
+            // Add Jumu'ah if viewing a Friday
+            if (selectedDate.getDay() === 5) {
+                html += createPrayerRow("Jumu'ah", prayerData.jumuah, true);
+            }
+
+            document.getElementById('mosque-times').innerHTML = html;
+        }
+
         // Load prayer times from JSON
         async function loadPrayerTimes() {
             try {
                 const response = await fetch('prayer-times.json');
                 if (!response.ok) throw new Error('Failed to load prayer times');
-
-                const data = await response.json();
-                const dateKey = formatDate(today);
-                const times = data.times[dateKey];
-
-                if (!times) {
-                    document.getElementById('error-container').innerHTML =
-                        `<div class="error-message">Prayer times not available for ${dateKey}. Please update prayer-times.json.</div>`;
-                    document.getElementById('mosque-times').innerHTML = '<div class="loading">Times not available for today</div>';
-                    return;
-                }
-
-                // Build mosque times HTML
-                let html = '';
-                html += createPrayerRow('Fajr', times.fajr);
-                html += createPrayerRow('Dhuhr', times.dhuhr);
-                html += createPrayerRow('Asr', times.asr);
-                html += createPrayerRow('Maghrib', times.maghrib);
-                html += createPrayerRow('Isha', times.isha);
-
-                // Add Jumu'ah if it's Friday
-                if (today.getDay() === 5) {
-                    html += createPrayerRow("Jumu'ah", data.jumuah, true);
-                }
-
-                document.getElementById('mosque-times').innerHTML = html;
-
+                prayerData = await response.json();
+                updateDisplay();
             } catch (error) {
                 console.error('Error loading prayer times:', error);
                 document.getElementById('error-container').innerHTML =
@@ -375,6 +547,40 @@
                 document.getElementById('mosque-times').innerHTML = '<div class="loading">Error loading times</div>';
             }
         }
+
+        // Navigation functions
+        function goToDate(date) {
+            selectedDate = new Date(date);
+            updateDisplay();
+        }
+
+        function changeDay(delta) {
+            selectedDate.setDate(selectedDate.getDate() + delta);
+            updateDisplay();
+        }
+
+        // Event listeners
+        document.getElementById('prev-day').addEventListener('click', () => changeDay(-1));
+        document.getElementById('next-day').addEventListener('click', () => changeDay(1));
+        document.getElementById('today-btn').addEventListener('click', () => goToDate(new Date()));
+
+        document.getElementById('current-date').addEventListener('click', () => {
+            document.getElementById('date-picker').showPicker();
+        });
+
+        document.getElementById('date-picker').addEventListener('change', (e) => {
+            if (e.target.value) {
+                goToDate(e.target.value + 'T12:00:00');
+            }
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === 'ArrowLeft') changeDay(-1);
+            if (e.key === 'ArrowRight') changeDay(1);
+            if (e.key === 't' || e.key === 'T') goToDate(new Date());
+        });
 
         // Load prayer times on page load
         loadPrayerTimes();
