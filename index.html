@@ -491,6 +491,13 @@
             return `${hours12}:${String(mins).padStart(2, '0')} ${period}`;
         }
 
+        // Round up to the nearest quarter hour (00, 15, 30, 45)
+        function roundUpToQuarter(minutes) {
+            const remainder = minutes % 15;
+            if (remainder === 0) return minutes;
+            return minutes + (15 - remainder);
+        }
+
         // Find closest available date in the times object
         function findClosestDate(targetKey, times) {
             if (times[targetKey]) {
@@ -548,7 +555,7 @@
                 endLabel = 'Isha';
             }
 
-            // Clamp to valid range
+            // Start with saved time, clamp to valid range
             let effectiveMinutes = savedMinutes;
             let adjusted = false;
 
@@ -556,7 +563,23 @@
                 effectiveMinutes = startMinutes;
                 adjusted = true;
             } else if (savedMinutes >= endMinutes) {
-                effectiveMinutes = endMinutes - 1; // 1 minute before end
+                effectiveMinutes = endMinutes - 15; // At least 15 min before end
+                adjusted = true;
+            }
+
+            // Round up to nearest quarter hour
+            const roundedMinutes = roundUpToQuarter(effectiveMinutes);
+
+            // Make sure rounded time still fits within bounds
+            if (roundedMinutes >= endMinutes) {
+                // If rounding pushes past end, use the last valid quarter before end
+                effectiveMinutes = Math.floor((endMinutes - 1) / 15) * 15;
+            } else {
+                effectiveMinutes = roundedMinutes;
+            }
+
+            // Check if we adjusted from original saved time
+            if (effectiveMinutes !== roundUpToQuarter(savedMinutes)) {
                 adjusted = true;
             }
 
