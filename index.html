@@ -107,8 +107,9 @@
 
         .cards-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 20px;
+            justify-content: center;
         }
 
         .card {
@@ -134,11 +135,11 @@
 
         .prayer-row {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             padding: 15px 0;
             border-bottom: 1px solid #f0f0f0;
-            gap: 15px;
+            gap: 20px;
         }
 
         .prayer-row:last-child {
@@ -151,6 +152,7 @@
             font-size: 1.05rem;
             flex-shrink: 0;
             min-width: 80px;
+            text-align: right;
         }
 
         .prayer-times {
@@ -241,32 +243,6 @@
             margin-top: 4px;
         }
 
-        .legend {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: white;
-            font-size: 0.9rem;
-        }
-
-        .legend-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 4px;
-        }
-
-        .legend-dot.adhan { background: #e3f2fd; }
-        .legend-dot.iqama { background: #e8f5e9; }
-        .legend-dot.our { background: #fff3e0; }
-
         .loading {
             text-align: center;
             padding: 40px;
@@ -304,8 +280,12 @@
 
             .prayer-row {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: center;
                 gap: 10px;
+            }
+
+            .prayer-name {
+                text-align: center;
             }
 
             .date-nav {
@@ -327,21 +307,6 @@
             <button class="nav-btn" id="next-day" title="Next day">&rarr;</button>
             <button class="today-btn" id="today-btn">Today</button>
             <input type="date" class="date-picker" id="date-picker">
-        </div>
-
-        <div class="legend">
-            <div class="legend-item">
-                <div class="legend-dot adhan"></div>
-                <span>Adhan</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-dot iqama"></div>
-                <span>Iqama (Mosque)</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-dot our"></div>
-                <span>Our Times</span>
-            </div>
         </div>
 
         <div id="error-container"></div>
