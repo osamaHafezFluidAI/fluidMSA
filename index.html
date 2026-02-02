@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prayer Times</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a5f4a 0%, #2d8a6e 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2.2rem;
+        }
+
+        .date {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #1a5f4a;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e8f5e9;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 .icon {
+            font-size: 1.5rem;
+        }
+
+        .prayer-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+            gap: 15px;
+        }
+
+        .prayer-row:last-child {
+            border-bottom: none;
+        }
+
+        .prayer-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.05rem;
+            flex-shrink: 0;
+            min-width: 80px;
+        }
+
+        .prayer-times {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+
+        .time-badge {
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            min-width: 85px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .adhan-time {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .iqama-time {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .our-time {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .time-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 4px;
+            opacity: 0.7;
+            letter-spacing: 0.5px;
+        }
+
+        .editable-time {
+            background: #fff3e0;
+            border: 2px solid #ffcc80;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: #e65100;
+            width: 110px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .editable-time:focus {
+            outline: none;
+            border-color: #e65100;
+        }
+
+        .link-section {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .link-section a {
+            color: #1a5f4a;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .link-section a:hover {
+            text-decoration: underline;
+        }
+
+        .save-notice {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+        }
+
+        .legend-dot.adhan { background: #e3f2fd; }
+        .legend-dot.iqama { background: #e8f5e9; }
+        .legend-dot.our { background: #fff3e0; }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 500px) {
+            .cards-container {
+                grid-template-columns: 1fr;
+            }
+
+            .prayer-times {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .prayer-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prayer Times</h1>
+        <p class="date" id="current-date"></p>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot adhan"></div>
+                <span>Adhan</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot iqama"></div>
+                <span>Iqama (Mosque)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot our"></div>
+                <span>Our Times</span>
+            </div>
+        </div>
+
+        <div id="error-container"></div>
+
+        <div class="cards-container">
+            <div class="card">
+                <h2><span class="icon">🕌</span> Kitchener Masjid</h2>
+                <div id="mosque-times">
+                    <div class="loading">Loading prayer times...</div>
+                </div>
+                <div class="link-section">
+                    <a href="https://masjidbox.com/prayer-times/kitchener-masjid" target="_blank">
+                        View on MasjidBox →
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">🏢</span> Our Prayer Times</h2>
+
+                <div class="prayer-row">
+                    <span class="prayer-name">Dhuhr</span>
+                    <div class="prayer-times">
+                        <input type="time" class="editable-time" id="our-dhuhr" value="12:45">
+                    </div>
+                </div>
+
+                <div class="prayer-row">
+                    <span class="prayer-name">Asr</span>
+                    <div class="prayer-times">
+                        <input type="time" class="editable-time" id="our-asr" value="15:30">
+                    </div>
+                </div>
+
+                <div class="prayer-row">
+                    <span class="prayer-name">Maghrib</span>
+                    <div class="prayer-times">
+                        <input type="time" class="editable-time" id="our-maghrib" value="17:40">
+                    </div>
+                </div>
+
+                <p class="save-notice">Times are saved automatically in your browser</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Display current date
+        const today = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
+
+        // Format date as MM-DD for JSON lookup (same times every year)
+        function formatDate(date) {
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${month}-${day}`;
+        }
+
+        // Create prayer row HTML
+        function createPrayerRow(name, times, showJumuah = false) {
+            if (showJumuah) {
+                return `
+                    <div class="prayer-row">
+                        <span class="prayer-name">${name}</span>
+                        <div class="prayer-times">
+                            <span class="time-badge iqama-time">
+                                <span class="time-label">Friday</span>
+                                ${times}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+            return `
+                <div class="prayer-row">
+                    <span class="prayer-name">${name}</span>
+                    <div class="prayer-times">
+                        <span class="time-badge adhan-time">
+                            <span class="time-label">Adhan</span>
+                            ${times.adhan}
+                        </span>
+                        <span class="time-badge iqama-time">
+                            <span class="time-label">Iqama</span>
+                            ${times.iqama}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load prayer times from JSON
+        async function loadPrayerTimes() {
+            try {
+                const response = await fetch('prayer-times.json');
+                if (!response.ok) throw new Error('Failed to load prayer times');
+
+                const data = await response.json();
+                const dateKey = formatDate(today);
+                const times = data.times[dateKey];
+
+                if (!times) {
+                    document.getElementById('error-container').innerHTML =
+                        `<div class="error-message">Prayer times not available for ${dateKey}. Please update prayer-times.json.</div>`;
+                    document.getElementById('mosque-times').innerHTML = '<div class="loading">Times not available for today</div>';
+                    return;
+                }
+
+                // Build mosque times HTML
+                let html = '';
+                html += createPrayerRow('Fajr', times.fajr);
+                html += createPrayerRow('Dhuhr', times.dhuhr);
+                html += createPrayerRow('Asr', times.asr);
+                html += createPrayerRow('Maghrib', times.maghrib);
+                html += createPrayerRow('Isha', times.isha);
+
+                // Add Jumu'ah if it's Friday
+                if (today.getDay() === 5) {
+                    html += createPrayerRow("Jumu'ah", data.jumuah, true);
+                }
+
+                document.getElementById('mosque-times').innerHTML = html;
+
+            } catch (error) {
+                console.error('Error loading prayer times:', error);
+                document.getElementById('error-container').innerHTML =
+                    `<div class="error-message">Could not load prayer times. Make sure prayer-times.json is in the same folder.</div>`;
+                document.getElementById('mosque-times').innerHTML = '<div class="loading">Error loading times</div>';
+            }
+        }
+
+        // Load prayer times on page load
+        loadPrayerTimes();
+
+        // Load saved times from localStorage
+        const prayers = ['dhuhr', 'asr', 'maghrib'];
+        prayers.forEach(prayer => {
+            const saved = localStorage.getItem(`our-${prayer}`);
+            if (saved) {
+                document.getElementById(`our-${prayer}`).value = saved;
+            }
+        });
+
+        // Save times when changed
+        prayers.forEach(prayer => {
+            document.getElementById(`our-${prayer}`).addEventListener('change', (e) => {
+                localStorage.setItem(`our-${prayer}`, e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>
