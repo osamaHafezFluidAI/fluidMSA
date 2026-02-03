@@ -162,64 +162,6 @@
             flex-shrink: 0;
         }
 
-        .time-badge {
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            min-width: 85px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .adhan-time {
-            background: #e3f2fd;
-            color: #1565c0;
-        }
-
-        .iqama-time {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        .our-time {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        .time-label {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            display: block;
-            margin-bottom: 4px;
-            opacity: 0.7;
-            letter-spacing: 0.5px;
-        }
-
-        .link-section {
-            margin-top: 15px;
-            text-align: center;
-        }
-
-        .link-section a {
-            color: #1a5f4a;
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .link-section a:hover {
-            text-decoration: underline;
-        }
-
-        .save-notice {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 0.85rem;
-            color: #666;
-        }
-
         .time-display {
             display: flex;
             flex-direction: column;
@@ -235,12 +177,6 @@
             color: #e65100;
             min-width: 90px;
             text-align: center;
-        }
-
-        .bounds-info {
-            font-size: 0.7rem;
-            color: #999;
-            margin-top: 4px;
         }
 
         .loading {
@@ -313,22 +249,9 @@
 
         <div class="cards-container">
             <div class="card">
-                <h2><span class="icon">🏢</span> Our Prayer Times</h2>
+                <h2><span class="icon">🕌</span> Our Prayer Times</h2>
                 <div id="our-times">
                     <div class="loading">Loading...</div>
-                </div>
-                <p class="save-notice">Auto-adjusts to next quarter hour within valid window</p>
-            </div>
-
-            <div class="card">
-                <h2><span class="icon">🕌</span> Kitchener Masjid</h2>
-                <div id="mosque-times">
-                    <div class="loading">Loading prayer times...</div>
-                </div>
-                <div class="link-section">
-                    <a href="https://masjidbox.com/prayer-times/kitchener-masjid" target="_blank">
-                        View on MasjidBox →
-                    </a>
                 </div>
             </div>
         </div>
@@ -437,74 +360,56 @@
         }
 
         // Calculate "our" prayer time (start of window, rounded to next quarter hour)
-        function getEffectiveOurTime(prayer, mosqueTimes) {
-            // Define bounds for each prayer
-            let startMinutes, endMinutes;
+        // Check if a date is in Daylight Saving Time (US rules)
+        // DST starts: Second Sunday in March at 2 AM
+        // DST ends: First Sunday in November at 2 AM
+        function isDST(date) {
+            const year = date.getFullYear();
+
+            // Find second Sunday in March
+            const marchFirst = new Date(year, 2, 1); // March 1
+            const marchFirstDay = marchFirst.getDay();
+            const secondSundayMarch = new Date(year, 2, 1 + (7 - marchFirstDay) % 7 + 7);
+
+            // Find first Sunday in November
+            const novFirst = new Date(year, 10, 1); // November 1
+            const novFirstDay = novFirst.getDay();
+            const firstSundayNov = new Date(year, 10, 1 + (7 - novFirstDay) % 7);
+
+            return date >= secondSundayMarch && date < firstSundayNov;
+        }
+
+        function getEffectiveOurTime(prayer, mosqueTimes, date) {
+            let effectiveMinutes;
 
             if (prayer === 'dhuhr') {
-                startMinutes = parseTimeToMinutes(mosqueTimes.dhuhr.adhan);
-                endMinutes = parseTimeToMinutes(mosqueTimes.asr.adhan);
+                // Dhuhr: 1 PM in winter (standard time), 2 PM during DST
+                effectiveMinutes = isDST(date) ? 14 * 60 : 13 * 60; // 2 PM or 1 PM
             } else if (prayer === 'asr') {
-                startMinutes = parseTimeToMinutes(mosqueTimes.asr.adhan);
-                endMinutes = parseTimeToMinutes(mosqueTimes.maghrib.adhan);
+                // Asr: keep current logic (round up to quarter hour within bounds)
+                const startMinutes = parseTimeToMinutes(mosqueTimes.asr.adhan);
+                const endMinutes = parseTimeToMinutes(mosqueTimes.maghrib.adhan);
+                effectiveMinutes = roundUpToQuarter(startMinutes);
+                if (effectiveMinutes >= endMinutes) {
+                    effectiveMinutes = Math.floor((endMinutes - 1) / 15) * 15;
+                }
             } else if (prayer === 'maghrib') {
-                startMinutes = parseTimeToMinutes(mosqueTimes.maghrib.adhan);
-                endMinutes = parseTimeToMinutes(mosqueTimes.isha.adhan);
-            }
-
-            // Round up start time to nearest quarter hour
-            let effectiveMinutes = roundUpToQuarter(startMinutes);
-
-            // Make sure rounded time still fits within bounds
-            if (effectiveMinutes >= endMinutes) {
-                effectiveMinutes = Math.floor((endMinutes - 1) / 15) * 15;
+                // Maghrib: max(athan time, 5 PM)
+                const adhanMinutes = parseTimeToMinutes(mosqueTimes.maghrib.adhan);
+                const fivePM = 17 * 60; // 5 PM in minutes
+                effectiveMinutes = Math.max(adhanMinutes, fivePM);
             }
 
             return {
                 effective: minutesToTime24(effectiveMinutes),
                 effectiveDisplay: minutesToTime12(effectiveMinutes),
-                effectiveMinutes,
-                startMinutes,
-                endMinutes,
-                boundsDisplay: `${minutesToTime12(startMinutes)} - ${minutesToTime12(endMinutes)}`
+                effectiveMinutes
             };
         }
 
-        // Create prayer row HTML
-        function createPrayerRow(name, times, showJumuah = false) {
-            if (showJumuah) {
-                return `
-                    <div class="prayer-row">
-                        <span class="prayer-name">${name}</span>
-                        <div class="prayer-times">
-                            <span class="time-badge iqama-time">
-                                <span class="time-label">Friday</span>
-                                ${times}
-                            </span>
-                        </div>
-                    </div>
-                `;
-            }
-            return `
-                <div class="prayer-row">
-                    <span class="prayer-name">${name}</span>
-                    <div class="prayer-times">
-                        <span class="time-badge adhan-time">
-                            <span class="time-label">Adhan</span>
-                            ${times.adhan}
-                        </span>
-                        <span class="time-badge iqama-time">
-                            <span class="time-label">Iqama</span>
-                            ${times.iqama}
-                        </span>
-                    </div>
-                </div>
-            `;
-        }
-
         // Create "our" prayer row HTML
-        function createOurPrayerRow(prayer, prayerName, mosqueTimes) {
-            const info = getEffectiveOurTime(prayer, mosqueTimes);
+        function createOurPrayerRow(prayer, prayerName, mosqueTimes, date) {
+            const info = getEffectiveOurTime(prayer, mosqueTimes, date);
 
             return `
                 <div class="prayer-row">
@@ -514,7 +419,6 @@
                             <div class="effective-time">
                                 ${info.effectiveDisplay}
                             </div>
-                            <div class="bounds-info">${info.boundsDisplay}</div>
                         </div>
                     </div>
                 </div>
@@ -541,7 +445,6 @@
             document.getElementById('error-container').innerHTML = '';
 
             if (!prayerData) {
-                document.getElementById('mosque-times').innerHTML = '<div class="loading">Loading...</div>';
                 document.getElementById('our-times').innerHTML = '<div class="loading">Loading...</div>';
                 return;
             }
@@ -552,7 +455,6 @@
             if (!result.key) {
                 document.getElementById('error-container').innerHTML =
                     `<div class="error-message">No prayer times available. Please update prayer-times.json.</div>`;
-                document.getElementById('mosque-times').innerHTML = '<div class="loading">Times not available</div>';
                 document.getElementById('our-times').innerHTML = '<div class="loading">Times not available</div>';
                 return;
             }
@@ -565,26 +467,11 @@
                     `<div class="approx-notice">Using times from ${result.key} (${result.daysOff} day${result.daysOff > 1 ? 's' : ''} difference)</div>`;
             }
 
-            // Build mosque times HTML
-            let mosqueHtml = '';
-            mosqueHtml += createPrayerRow('Fajr', times.fajr);
-            mosqueHtml += createPrayerRow('Dhuhr', times.dhuhr);
-            mosqueHtml += createPrayerRow('Asr', times.asr);
-            mosqueHtml += createPrayerRow('Maghrib', times.maghrib);
-            mosqueHtml += createPrayerRow('Isha', times.isha);
-
-            // Add Jumu'ah if viewing a Friday
-            if (selectedDate.getDay() === 5) {
-                mosqueHtml += createPrayerRow("Jumu'ah", prayerData.jumuah, true);
-            }
-
-            document.getElementById('mosque-times').innerHTML = mosqueHtml;
-
-            // Build "our" times HTML with bounds checking
+            // Build "our" times HTML
             let ourHtml = '';
-            ourHtml += createOurPrayerRow('dhuhr', 'Dhuhr', times);
-            ourHtml += createOurPrayerRow('asr', 'Asr', times);
-            ourHtml += createOurPrayerRow('maghrib', 'Maghrib', times);
+            ourHtml += createOurPrayerRow('dhuhr', 'Dhuhr', times, selectedDate);
+            ourHtml += createOurPrayerRow('asr', 'Asr', times, selectedDate);
+            ourHtml += createOurPrayerRow('maghrib', 'Maghrib', times, selectedDate);
 
             document.getElementById('our-times').innerHTML = ourHtml;
         }
@@ -600,7 +487,7 @@
                 console.error('Error loading prayer times:', error);
                 document.getElementById('error-container').innerHTML =
                     `<div class="error-message">Could not load prayer times. Make sure prayer-times.json is in the same folder.</div>`;
-                document.getElementById('mosque-times').innerHTML = '<div class="loading">Error loading times</div>';
+                document.getElementById('our-times').innerHTML = '<div class="loading">Error loading times</div>';
             }
         }
 
